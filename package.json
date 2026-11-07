@@ -13,7 +13,7 @@
     "preview": "vite preview --port 5173",
     "test": "vitest run",
     "start:desktop": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win portable"
+    "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "@fontsource/cinzel": "5.1.1",
@@ -39,8 +39,20 @@
       "package.json"
     ],
     "win": {
-      "target": "portable",
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "artifactName": "PlayDragon-Setup.exe",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PlayDragon"
     },
     "portable": {
       "artifactName": "PlayDragon.exe"

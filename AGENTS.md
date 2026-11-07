@@ -23,7 +23,7 @@ détruire. Le jeu est livré en `.exe` Windows portable.
 | `npm test` | Lance les tests unitaires (Vitest) |
 | `npm run build` | Vérifie les types et construit `dist/` |
 | `npm run start:desktop` | Build, puis ouvre le jeu dans une fenêtre Electron |
-| `npm run dist` | Build, puis produit **`release/PlayDragon.exe`** (portable, non signé) |
+| `npm run dist` | Build, puis produit **`release/PlayDragon-Setup.exe`** (installeur) et **`release/PlayDragon.exe`** (portable), non signés |
 
 ### Pièges connus de l'environnement
 
@@ -94,3 +94,14 @@ Ils sont lus par caractère (`event.key`), donc l'**AZERTY** fonctionne directem
 Aucun. Les 7 skills Codex demandés par le prompt d'origine (UI UX Pro Max, Design Taste Frontend, GPT
 Taste, Humanizer, Impeccable, Stop Design Slop, Graphify) n'ont pas été installés. Ce projet a été développé
 avec Claude Code, et leurs sources officielles n'ont pas été vérifiées. Voir `ANALYSE_PROMPT.md`.
+
+## Publier une version
+
+Le bouton de téléchargement du README pointe vers
+`releases/latest/download/PlayDragon-Setup.exe`. Il sert donc toujours la dernière Release GitHub. Pour
+publier une nouvelle version :
+
+1. Augmenter `version` dans `package.json`.
+2. `npm test`, puis `npm run dist`.
+3. Créer une Release GitHub `vX.Y.Z` et y joindre `release/PlayDragon-Setup.exe` et
+   `release/PlayDragon.exe`, sans changer ces noms de fichiers.

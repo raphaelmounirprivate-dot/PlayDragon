@@ -1,14 +1,43 @@
-# PlayDragon
+<h1 align="center">PlayDragon</h1>
+
+<p align="center">
+  <a href="https://github.com/raphaelmounirprivate-dot/PlayDragon/releases/latest/download/PlayDragon-Setup.exe">
+    <img src="docs/telecharger-windows.svg" width="560" alt="Télécharger PlayDragon pour Windows">
+  </a>
+</p>
+
+<p align="center">
+  <b><a href="https://github.com/raphaelmounirprivate-dot/PlayDragon/releases/latest/download/PlayDragon-Setup.exe">⬇ Télécharger l'installeur (PlayDragon-Setup.exe)</a></b>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/raphaelmounirprivate-dot/PlayDragon/releases/latest/download/PlayDragon.exe">version portable sans installation</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/raphaelmounirprivate-dot/PlayDragon/releases/latest">toutes les versions</a>
+</p>
+
+<p align="center">
+  <img src="docs/apercu-menu.jpg" width="900" alt="Écran titre de PlayDragon : un dragon au-dessus d'une mer de nuages au coucher du soleil">
+</p>
 
 Un dragon survole une vallée au coucher du soleil, au-dessus d'une mer de nuages. Traverse les anneaux de
-lumière et évite les rochers flottants. Au bout du chemin, un château t'attend : réduis-le en cendres avant
-que ses tours ne t'abattent.
+lumière, abats les gargouilles et évite les rochers flottants. Au bout du chemin, un château t'attend :
+réduis-le en cendres avant que ses tours ne t'abattent.
+
+## Installer
+
+1. Clique sur **Télécharger le jeu** ci-dessus.
+2. Lance `PlayDragon-Setup.exe`. Le jeu n'est pas signé, donc Windows SmartScreen peut afficher
+   « Windows a protégé votre ordinateur » : clique sur **Informations complémentaires**, puis
+   **Exécuter quand même**.
+3. Suis l'installeur. Il crée un raccourci **PlayDragon** sur le bureau et dans le menu Démarrer. Pour
+   désinstaller : Paramètres › Applications.
+
+Tu préfères ne rien installer ? Prends la **version portable** (`PlayDragon.exe`) et lance-la directement.
+
+<p align="center">
+  <img src="docs/apercu-vol.jpg" width="900" alt="En vol : le dragon au-dessus des nuages, anneaux de lumière et pouvoirs en bas à gauche">
+</p>
 
 ## Jouer
-
-**Windows :** lance `PlayDragon.exe` (portable, aucune installation). Comme l'exe n'est pas signé, Windows
-SmartScreen peut afficher un avertissement : clique sur « Informations complémentaires », puis
-« Exécuter quand même ».
 
 | Touche | Action |
 |---|---|
@@ -49,7 +78,7 @@ Il faut Node.js 20 ou plus récent.
 npm install
 npm run dev          # http://localhost:5173
 npm test             # tests unitaires
-npm run dist         # produit release/PlayDragon.exe
+npm run dist         # produit release/PlayDragon-Setup.exe (installeur) et release/PlayDragon.exe (portable)
 ```
 
 Les règles du projet, son architecture et les pièges d'installation sont décrits dans

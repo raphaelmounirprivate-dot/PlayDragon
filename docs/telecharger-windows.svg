@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="112" viewBox="0 0 560 112" role="img" aria-label="Télécharger PlayDragon pour Windows">
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffa44a"/>
+      <stop offset="1" stop-color="#c4461b"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="556" height="108" rx="14" fill="#3b1608"/>
+  <rect x="6" y="6" width="548" height="100" rx="11" fill="url(#fill)"/>
+  <rect x="6" y="6" width="548" height="50" rx="11" fill="url(#shine)"/>
+  <!-- Windows logo -->
+  <g transform="translate(34 30)" fill="#fff8ec">
+    <rect x="0" y="0" width="23" height="23" rx="1.5"/>
+    <rect x="27" y="0" width="23" height="23" rx="1.5"/>
+    <rect x="0" y="27" width="23" height="23" rx="1.5"/>
+    <rect x="27" y="27" width="23" height="23" rx="1.5"/>
+  </g>
+  <!-- Download arrow -->
+  <g transform="translate(500 30)" fill="none" stroke="#fff8ec" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2v32M2 22l12 12 12-12M0 48h28"/>
+  </g>
+  <text x="104" y="56" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" font-weight="800" fill="#fff8ec" letter-spacing="1">TÉLÉCHARGER LE JEU</text>
+  <text x="105" y="84" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#ffe2a8">Installeur Windows · gratuit · PlayDragon-Setup.exe</text>
+</svg>
