@@ -12,6 +12,8 @@ import {
 import { BOLT_DAMAGE, DRAGON_MAX_HP, FOG_COLOR, ROCK_DAMAGE, SUN_DIRECTION } from '../config';
 import { Input } from '../core/input';
 import { Dragon } from '../entities/dragon';
+import { Shield } from '../entities/shield';
+import { ABILITIES, Abilities, AbilityId, definition } from '../logic/abilities';
 import { Effects, randomDirection } from '../fx/particles';
 import { createGlowTexture } from '../fx/textures';
 import { GameState } from '../logic/gameState';
@@ -29,6 +31,7 @@ import { Combat } from './combat';
 import { FlightController, FlightMode } from './flight';
 
 const INVULNERABILITY = 1;
+const HEAL_AMOUNT = 40;
 const END_SCREEN_DELAY = 3;
 const AIM_DISTANCE = 1400;
 
@@ -49,6 +52,8 @@ export class Game {
   private readonly combat: Combat;
   private readonly flight: FlightController;
   private readonly raycaster = new Raycaster();
+  private readonly abilities = new Abilities();
+  private readonly shield = new Shield();
   private invulnerable = 0;
   private endTimer = 0;
   private paused = false;
@@ -80,15 +85,18 @@ export class Game {
       this.obstacles.group,
       this.dragon.root,
       this.combat.fireballs.group,
+      this.combat.meteors.group,
       this.combat.bolts.group,
+      this.shield.mesh,
       this.effects.smoke.points,
       this.effects.fire.points,
     );
 
     this.hud.onStart(() => this.start());
+    this.hud.createAbilityBar((id) => this.useAbility(id));
     window.addEventListener('resize', () => this.resize());
     this.resize();
-    this.flight.update(0, 0, 0, 'menu');
+    this.flight.update(0, 0, 0, 0, 'menu');
   }
 
   run(): void {
@@ -110,6 +118,7 @@ export class Game {
     this.obstacles.reset();
     this.castle.reset();
     this.combat.reset();
+    this.abilities.reset();
     this.effects.clear();
     this.invulnerable = 0;
     this.endTimer = 0;
@@ -134,7 +143,18 @@ export class Game {
 
     const mode = this.flightMode();
     const steering = this.state.isPlaying();
-    this.flight.update(dt, steering ? this.input.horizontal() : 0, steering ? this.input.vertical() : 0, mode);
+    this.flight.update(
+      dt,
+      steering ? this.input.horizontal() : 0,
+      steering ? this.input.vertical() : 0,
+      steering ? this.input.throttle() : 0,
+      mode,
+    );
+
+    this.abilities.update(dt);
+    const hotkey = this.input.consumeAbilityKey();
+    if (hotkey >= 0) this.useAbility(ABILITIES[hotkey].id);
+    this.shield.update(this.flight.position, this.abilities.isActive('shield'), time);
 
     if (this.state.phase === 'voyage') this.updateVoyage();
     if (this.state.isPlaying()) this.updateCombat(dt);
@@ -150,7 +170,16 @@ export class Game {
       castleIntegrity: this.state.castleIntegrity(),
       score: this.state.score,
       journey: this.flight.journey(),
+      speed: this.flight.speedFactor,
     });
+    this.hud.updateAbilities(
+      ABILITIES.map((ability) => ({
+        id: ability.id,
+        ready: this.abilities.canActivate(ability.id, this.state),
+        active: this.abilities.isActive(ability.id),
+        cooldownRatio: this.abilities.cooldownRatio(ability.id),
+      })),
+    );
   }
 
   private flightMode(): FlightMode {
@@ -189,11 +218,22 @@ export class Game {
     }
   }
 
+  private useAbility(id: AbilityId): void {
+    if (!this.abilities.activate(id, this.state)) return;
+    const ability = definition(id);
+    this.hud.announce(ability.name);
+    if (id === 'heal') {
+      this.state.heal(HEAL_AMOUNT);
+      this.sparkle(this.flight.position);
+    }
+    if (id === 'meteor') this.combat.launchMeteor(this.dragon.mouthPosition(new Vector3()), this.aimPoint());
+  }
+
   private updateCombat(dt: number): void {
     const mouth = this.dragon.mouthPosition(new Vector3());
-    this.combat.tryFire(mouth, this.aimPoint(), dt, this.input.isFiring());
+    this.combat.tryFire(mouth, this.aimPoint(), dt, this.input.isFiring(), this.abilities.isActive('triple'));
     this.combat.update(dt, this.flight.position, this.state.phase === 'siege', {
-      onCastleHit: (partId) => this.state.damagePart(partId),
+      onCastleHit: (partId, damage) => this.state.damagePart(partId, damage),
       onDragonHit: () => this.hurtDragon(BOLT_DAMAGE),
     });
     if (this.state.phase === 'victory') {
@@ -227,7 +267,7 @@ export class Game {
   }
 
   private hurtDragon(amount: number): void {
-    if (this.invulnerable > 0) return;
+    if (this.invulnerable > 0 || this.abilities.isActive('shield')) return;
     this.invulnerable = INVULNERABILITY;
     this.state.damageDragon(amount);
     this.hud.flashDamage();

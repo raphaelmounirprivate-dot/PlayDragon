@@ -12,8 +12,10 @@ SmartScreen peut afficher un avertissement : clique sur « Informations complém
 
 | Touche | Action |
 |---|---|
-| **Z Q S D** ou flèches | Diriger le dragon (clavier AZERTY ; W/A acceptés en QWERTY) |
+| **Z Q S D** ou flèches | Diriger le dragon (clavier AZERTY) |
+| **E** (ou Maj) / **A** | Accélérer / freiner |
 | **Clic** ou **Espace** | Cracher une boule de feu (vise avec la souris) |
+| **1 2 3 4** ou boutons en bas à gauche | Pouvoirs spéciaux, payés avec tes points |
 | **Échap** | Pause |
 | **F11** | Plein écran |
 
@@ -25,6 +27,17 @@ SmartScreen peut afficher un avertissement : clique sur « Informations complém
    **Z / S** pour monter ou descendre. Ses 6 tours et son donjon tirent des carreaux bleus : esquive-les en
    tournant. Chaque partie du château détruite rapporte 500 points.
 3. **La victoire :** quand tout est détruit, les remparts s'effondrent.
+
+### Pouvoirs spéciaux
+
+Tes points sont aussi ta monnaie. Chaque pouvoir a un temps de recharge.
+
+| Touche | Pouvoir | Coût | Effet |
+|---|---|---|---|
+| 1 | Triple feu | 300 | Pendant 8 s, chaque tir part en éventail de 3 boules de feu |
+| 2 | Bouclier | 400 | Invulnérable pendant 6 s |
+| 3 | Soin | 300 | Rend 40 points de vie |
+| 4 | Météore | 600 | Une énorme boule de feu qui inflige 4 dégâts au château |
 
 ## Développer
 

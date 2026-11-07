@@ -13,6 +13,8 @@
         <div class="meter">
           <span class="meter-label">Dragon</span>
           <div class="bar"><div id="dragon-hp" class="bar-fill bar-fill--life"></div></div>
+          <span class="meter-label meter-label--small">Vitesse</span>
+          <div class="bar bar--thin"><div id="speed" class="bar-fill bar-fill--speed"></div></div>
         </div>
         <div id="castle-meter" class="meter meter--castle hidden">
           <span class="meter-label">Château</span>
@@ -24,6 +26,7 @@
         <div class="journey-track"><div id="journey-progress" class="journey-progress"></div></div>
         <span class="journey-castle" aria-hidden="true">♜</span>
       </div>
+      <div id="abilities" class="abilities" aria-label="Pouvoirs spéciaux"></div>
       <div id="crosshair" class="crosshair"></div>
       <div id="banner" class="banner"></div>
       <div id="damage-flash" class="damage-flash"></div>
@@ -36,6 +39,8 @@
       <button id="start" class="cta" type="button">Prendre son envol</button>
       <ul class="controls">
         <li><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>↑←↓→</kbd> diriger, puis tourner autour du château</li>
+        <li><kbd>E</kbd> accélérer <kbd>A</kbd> freiner</li>
+        <li><kbd>1</kbd>–<kbd>4</kbd> pouvoirs (avec tes points)</li>
         <li><kbd>Clic</kbd> / <kbd>Espace</kbd> cracher le feu</li>
         <li><kbd>Échap</kbd> pause</li>
       </ul>

@@ -46,6 +46,10 @@ export class GameState {
     if (this.dragonHp === 0) this.phase = 'defeat';
   }
 
+  heal(amount: number): void {
+    if (this.isPlaying()) this.dragonHp = Math.min(DRAGON_MAX_HP, this.dragonHp + amount);
+  }
+
   /** Returns true when this hit destroys the part. */
   damagePart(id: string, amount = 1): boolean {
     const hp = this.partHp.get(id);

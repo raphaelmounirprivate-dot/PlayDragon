@@ -47,7 +47,8 @@ détruire. Le jeu est livré en `.exe` Windows portable.
   uniquement quand ils apportent du sens.
 - **Architecture MVC,** adaptée à un jeu :
   - **Model :** règles et données pures, sans rendu. `src/logic/gameState.ts` (phases, vie, score, dégâts
-    du château) et `src/world/flightPath.ts` (rivière, relief, trajectoire).
+    du château), `src/logic/abilities.ts` (coûts, durées, recharges des pouvoirs) et
+    `src/world/flightPath.ts` (rivière, relief, trajectoire).
   - **View :** tout ce qui s'affiche. `src/world/` (ciel, terrain, nuages, château…), `src/entities/`
     (dragon, ailes, projectiles), `src/fx/` (textures procédurales, particules), `src/render/`
     (renderer et post-traitement), `src/ui/` (HUD et écrans).
@@ -73,8 +74,12 @@ Le jeu suit un dessin de référence : un dragon sombre au-dessus d'une mer de n
 
 Ils sont lus par caractère (`event.key`), donc l'**AZERTY** fonctionne directement :
 
-- **Z Q S D** ou les **flèches** : diriger (W et A sont aussi acceptés pour les claviers QWERTY). Pendant
-  le siège, Q/D font tourner le dragon autour du château (face à lui) et Z/S changent son altitude.
+- **Z Q S D** ou les **flèches** : diriger. Pendant le siège, Q/D font tourner le dragon autour du château
+  (face à lui) et Z/S changent son altitude.
+- **E** (ou Maj) : accélérer. **A** : freiner. `a` n'est donc pas un repli QWERTY pour aller à gauche.
+- **1 à 4** ou les boutons en bas à gauche : pouvoirs spéciaux, payés avec les points
+  (`src/logic/abilities.ts`). Ces chiffres sont lus par `event.code`, car en AZERTY la rangée du haut
+  donne `& é " '` sans Maj.
 - **Clic** ou **Espace** : cracher le feu
 - **Échap** : pause
 - **F11** : plein écran (dans l'exe)

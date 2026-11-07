@@ -2,6 +2,8 @@ import { Vector3 } from 'three';
 
 export const PATH_LENGTH = 6400;
 export const FLIGHT_SPEED = 95;
+export const BOOST_FACTOR = 1.9;
+export const BRAKE_FACTOR = 0.4;
 export const FLIGHT_ALTITUDE = 430;
 export const SIEGE_DISTANCE = 400;
 export const STEER_LIMIT_X = 130;

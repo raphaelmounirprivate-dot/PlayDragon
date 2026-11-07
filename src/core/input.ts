@@ -1,12 +1,21 @@
 import { Vector2 } from 'three';
 
-// Keys are read by the character they produce (event.key), so the letters printed on an
-// AZERTY keyboard (Z Q S D) work as-is; W/A remain as fallback for QWERTY keyboards.
+// Letters are read by the character they produce (event.key), so the AZERTY layout works as
+// printed: Z Q S D to steer, E to speed up, A to brake.
 const UP = ['z', 'w', 'ArrowUp'];
 const DOWN = ['s', 'ArrowDown'];
-const LEFT = ['q', 'a', 'ArrowLeft'];
+const LEFT = ['q', 'ArrowLeft'];
 const RIGHT = ['d', 'ArrowRight'];
+const FASTER = ['e', 'Shift'];
+const SLOWER = ['a'];
 const FIRE = ' ';
+// Digits are read by physical key (event.code): on AZERTY the top row types & é " ' without Shift.
+const ABILITY_CODES = [
+  ['Digit1', 'Numpad1'],
+  ['Digit2', 'Numpad2'],
+  ['Digit3', 'Numpad3'],
+  ['Digit4', 'Numpad4'],
+];
 
 function normalize(event: KeyboardEvent): string {
   return event.key.length === 1 ? event.key.toLowerCase() : event.key;
@@ -23,6 +32,7 @@ export class Input {
     window.addEventListener('keydown', (event) => {
       const key = normalize(event);
       if (!this.keys.has(key)) this.pressed.add(key);
+      if (!event.repeat) this.pressed.add(event.code);
       this.keys.add(key);
       if (key === FIRE || key.startsWith('Arrow')) event.preventDefault();
     });
@@ -43,6 +53,16 @@ export class Input {
   /** -1 (down) to 1 (up). */
   vertical(): number {
     return this.axis(UP, DOWN);
+  }
+
+  /** -1 (brake) to 1 (accelerate). */
+  throttle(): number {
+    return this.axis(FASTER, SLOWER);
+  }
+
+  /** Index (0-3) of the ability hotkey pressed this frame, or -1. */
+  consumeAbilityKey(): number {
+    return ABILITY_CODES.findIndex((codes) => codes.map((code) => this.consume(code)).some(Boolean));
   }
 
   isFiring(): boolean {

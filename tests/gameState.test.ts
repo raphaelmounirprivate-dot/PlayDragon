@@ -35,6 +35,16 @@ describe('GameState', () => {
     expect(state.phase).toBe('defeat');
   });
 
+  it('heals without exceeding maximum health', () => {
+    const state = new GameState();
+    state.start();
+    state.damageDragon(30);
+    state.heal(20);
+    expect(state.dragonHp).toBe(DRAGON_MAX_HP - 10);
+    state.heal(100);
+    expect(state.dragonHp).toBe(DRAGON_MAX_HP);
+  });
+
   it('ignores castle damage outside the siege', () => {
     const state = new GameState();
     state.registerPart('tower', 1);

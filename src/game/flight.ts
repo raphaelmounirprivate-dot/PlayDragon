@@ -1,5 +1,5 @@
 import { CatmullRomCurve3, MathUtils, Matrix4, PerspectiveCamera, Vector2, Vector3 } from 'three';
-import { FLIGHT_SPEED, SIEGE_DISTANCE, STEER_LIMIT_X, STEER_LIMIT_Y, STEER_SPEED } from '../config';
+import { BOOST_FACTOR, BRAKE_FACTOR, FLIGHT_SPEED, SIEGE_DISTANCE, STEER_LIMIT_X, STEER_LIMIT_Y, STEER_SPEED } from '../config';
 import { Dragon } from '../entities/dragon';
 import { frameAt } from '../world/pathFrame';
 import { terrainHeight } from '../world/flightPath';
@@ -14,6 +14,8 @@ const ORBIT_MAX_RADIUS = 480;
 const ORBIT_MIN_HEIGHT = -20;
 const ORBIT_MAX_HEIGHT = 220;
 const MAX_PITCH = 0.65;
+const BASE_FOV = 58;
+const BOOST_FOV = 12;
 const PITCH_SPEED_SCALE = 90;
 
 interface Orbit {
@@ -30,6 +32,8 @@ export class FlightController {
   private readonly offset = new Vector2();
   private orbit: Orbit | null = null;
   private previousY = 0;
+  /** Current speed relative to cruise speed (BRAKE_FACTOR to BOOST_FACTOR). */
+  speedFactor = 1;
   private bank = 0;
   private pitch = 0;
   private time = 0;
@@ -49,6 +53,7 @@ export class FlightController {
     this.distance = 0;
     this.offset.set(0, 0);
     this.orbit = null;
+    this.speedFactor = 1;
     this.previousY = this.curve.getPointAt(0).y;
     this.bank = 0;
     this.pitch = 0;
@@ -63,8 +68,11 @@ export class FlightController {
     return this.distance >= this.siegeStart;
   }
 
-  update(dt: number, steerX: number, steerY: number, mode: FlightMode): void {
+  /** `throttle`: -1 brakes, 0 cruises, 1 accelerates. */
+  update(dt: number, steerX: number, steerY: number, throttle: number, mode: FlightMode): void {
     this.time += dt;
+    const speedTarget = throttle > 0 ? BOOST_FACTOR : throttle < 0 ? BRAKE_FACTOR : 1;
+    this.speedFactor = MathUtils.damp(this.speedFactor, speedTarget, 3, dt);
     const atCastle = mode === 'siege' || (mode === 'end' && this.reachedCastle());
     if (atCastle) {
       this.circleCastle(dt, mode === 'siege' ? steerX : 0, mode === 'siege' ? steerY : 0);
@@ -80,13 +88,13 @@ export class FlightController {
     this.bank = MathUtils.damp(this.bank, -steerX * 0.55, 4, dt);
     this.pitch = MathUtils.damp(this.pitch, pitchTarget, 5, dt);
     this.orientDragon();
-    this.dragon.update(dt, this.time, Math.max(0, steerY));
+    this.dragon.update(dt, this.time, Math.max(0, steerY, this.speedFactor - 1));
     this.updateCamera(dt, mode);
   }
 
   private followRiver(dt: number, steerX: number, steerY: number, mode: FlightMode): void {
     if (mode === 'voyage') {
-      this.distance = Math.min(this.siegeStart, this.distance + FLIGHT_SPEED * dt);
+      this.distance = Math.min(this.siegeStart, this.distance + FLIGHT_SPEED * this.speedFactor * dt);
       this.offset.x = MathUtils.clamp(this.offset.x + steerX * STEER_SPEED * dt, -STEER_LIMIT_X, STEER_LIMIT_X);
       this.offset.y = MathUtils.clamp(this.offset.y + steerY * STEER_SPEED * 0.7 * dt, -STEER_LIMIT_Y, STEER_LIMIT_Y);
     }
@@ -107,7 +115,7 @@ export class FlightController {
     }
     const orbit = this.orbit;
     // Moving toward the dragon's right (facing the castle) decreases the angle.
-    orbit.angle -= (steerX * ORBIT_SPEED * dt) / orbit.radius;
+    orbit.angle -= (steerX * ORBIT_SPEED * this.speedFactor * dt) / orbit.radius;
     orbit.height = MathUtils.clamp(orbit.height + steerY * STEER_SPEED * 0.7 * dt, center.y + ORBIT_MIN_HEIGHT, center.y + ORBIT_MAX_HEIGHT);
     this.position.set(center.x + Math.cos(orbit.angle) * orbit.radius, orbit.height, center.z + Math.sin(orbit.angle) * orbit.radius);
     this.forward.copy(center).sub(this.position).setY(0).normalize();
@@ -144,6 +152,9 @@ export class FlightController {
     target.y = Math.max(target.y, terrainHeight(target.x, target.z) + CAMERA_GROUND_CLEARANCE);
     const smoothing = 1 - Math.exp(-4 * dt);
     this.camera.position.lerp(target, dt === 0 ? 1 : smoothing);
+    // Wider field of view at high speed sells the acceleration.
+    this.camera.fov = BASE_FOV + (this.speedFactor - 1) * BOOST_FOV;
+    this.camera.updateProjectionMatrix();
     this.camera.lookAt(lookAt);
   }
 }
