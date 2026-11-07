@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PlayDragon</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="meter">
+          <span class="meter-label">Dragon</span>
+          <div class="bar"><div id="dragon-hp" class="bar-fill bar-fill--life"></div></div>
+        </div>
+        <div id="castle-meter" class="meter meter--castle hidden">
+          <span class="meter-label">Château</span>
+          <div class="bar"><div id="castle-hp" class="bar-fill bar-fill--castle"></div></div>
+        </div>
+        <div class="score"><span id="score">0</span><small>points</small></div>
+      </div>
+      <div class="journey">
+        <div class="journey-track"><div id="journey-progress" class="journey-progress"></div></div>
+        <span class="journey-castle" aria-hidden="true">♜</span>
+      </div>
+      <div id="crosshair" class="crosshair"></div>
+      <div id="banner" class="banner"></div>
+      <div id="damage-flash" class="damage-flash"></div>
+    </div>
+
+    <section id="menu" class="screen">
+      <p class="eyebrow">Au coucher du soleil</p>
+      <h1 class="title">Play<br />Dragon</h1>
+      <p class="tagline">Survole la vallée, traverse les anneaux de lumière.<br />Au bout du chemin, un château t'attend. Réduis-le en cendres.</p>
+      <button id="start" class="cta" type="button">Prendre son envol</button>
+      <ul class="controls">
+        <li><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>↑←↓→</kbd> diriger</li>
+        <li><kbd>Clic</kbd> / <kbd>Espace</kbd> cracher le feu</li>
+        <li><kbd>Échap</kbd> pause</li>
+      </ul>
+    </section>
+
+    <section id="end" class="screen hidden">
+      <p id="end-eyebrow" class="eyebrow"></p>
+      <h1 id="end-title" class="title title--end"></h1>
+      <p id="end-summary" class="tagline"></p>
+      <button id="restart" class="cta" type="button">Rejouer</button>
+    </section>
+
+    <section id="pause" class="screen screen--light hidden">
+      <h1 class="title title--end">Pause</h1>
+      <p class="tagline">Appuie sur <kbd>Échap</kbd> pour reprendre.</p>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

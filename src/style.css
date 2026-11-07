@@ -1,0 +1,316 @@
+:root {
+  --ember: #ffb347;
+  --gold: #ffe2a8;
+  --cream: #fff4dc;
+  --ink: #1a0d0a;
+  --shadow: rgba(26, 10, 6, 0.65);
+  --life: linear-gradient(90deg, #ff7a2f, #ffd27a);
+  --castle: linear-gradient(90deg, #6b6f8f, #c7c9e6);
+  --display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --text: 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #120806;
+  color: var(--cream);
+  font-family: var(--text);
+  user-select: none;
+}
+
+#app canvas {
+  display: block;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Screens ---------------------------------------------------------------- */
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 clamp(24px, 8vw, 140px);
+  background: linear-gradient(90deg, rgba(18, 6, 4, 0.72) 0%, rgba(18, 6, 4, 0.35) 45%, transparent 75%);
+  animation: fade-in 0.8s ease both;
+}
+
+.screen--light {
+  align-items: center;
+  text-align: center;
+  background: rgba(18, 6, 4, 0.45);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--ember);
+}
+
+.title {
+  margin: 0;
+  /* Room for accents (Â, É) above the first line: gradient text is clipped to the box. */
+  padding-top: 0.14em;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(64px, 11vw, 150px);
+  line-height: 0.88;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: linear-gradient(180deg, #fffaf0 30%, #ffc777 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 0 #3b1608) drop-shadow(0 0 28px rgba(255, 150, 60, 0.45));
+}
+
+.title--end {
+  font-size: clamp(48px, 8vw, 110px);
+}
+
+.tagline {
+  max-width: 34em;
+  margin: 26px 0 34px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--gold);
+  text-shadow: 0 2px 8px var(--shadow);
+}
+
+.cta {
+  padding: 16px 38px;
+  border: 1px solid rgba(255, 220, 160, 0.7);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ff9b42, #c4461b);
+  color: #fff8ec;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(255, 140, 50, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 44px rgba(255, 160, 70, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 4px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  margin: 40px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: rgba(255, 236, 205, 0.85);
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  margin-right: 2px;
+  border: 1px solid rgba(255, 220, 170, 0.45);
+  border-radius: 3px;
+  background: rgba(30, 12, 8, 0.55);
+  font-family: var(--text);
+  font-size: 12px;
+  color: var(--cream);
+}
+
+/* HUD -------------------------------------------------------------------- */
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 28px;
+}
+
+.meter {
+  width: min(280px, 30vw);
+}
+
+.meter--castle {
+  width: min(420px, 36vw);
+  text-align: center;
+}
+
+.meter-label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 1px 4px var(--shadow);
+}
+
+.bar {
+  height: 10px;
+  border: 1px solid rgba(255, 220, 170, 0.5);
+  background: rgba(20, 8, 6, 0.6);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.25s ease;
+}
+
+.bar-fill--life {
+  background: var(--life);
+  box-shadow: 0 0 12px rgba(255, 150, 60, 0.8);
+}
+
+.bar-fill--castle {
+  background: var(--castle);
+}
+
+.score {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 34px;
+  color: var(--cream);
+  text-align: right;
+  text-shadow: 0 2px 0 #3b1608, 0 0 18px rgba(255, 150, 60, 0.5);
+}
+
+.score small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--ember);
+}
+
+.journey {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(520px, 70vw);
+  transform: translateX(-50%);
+}
+
+.journey-track {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 230, 190, 0.25);
+}
+
+.journey-progress {
+  width: 0;
+  height: 100%;
+  background: var(--gold);
+  box-shadow: 0 0 10px var(--ember);
+}
+
+.journey-castle {
+  font-size: 24px;
+  color: var(--gold);
+  text-shadow: 0 0 10px var(--ember);
+}
+
+.crosshair {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 2px solid rgba(255, 230, 180, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 150, 60, 0.7);
+}
+
+.crosshair::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--cream);
+}
+
+.banner {
+  position: absolute;
+  top: 24%;
+  left: 0;
+  right: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(28px, 4.4vw, 56px);
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--cream);
+  text-shadow: 0 3px 0 #3b1608, 0 0 30px rgba(255, 140, 50, 0.7);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.banner.visible {
+  opacity: 1;
+}
+
+.damage-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(200, 30, 10, 0.55) 100%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.damage-flash.visible {
+  opacity: 1;
+  transition: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen {
+    animation: none;
+  }
+}
