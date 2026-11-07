@@ -15,6 +15,8 @@ export const ROCK_DAMAGE = 20;
 export const BOLT_DAMAGE = 10;
 export const RING_SCORE = 100;
 export const PART_SCORE = 500;
+export const ENEMY_SCORE = 150;
+export const ENEMY_DAMAGE = 10;
 
 export const FIREBALL_SPEED = 520;
 export const FIREBALL_COOLDOWN = 0.35;

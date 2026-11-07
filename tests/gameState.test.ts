@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameState } from '../src/logic/gameState';
-import { DRAGON_MAX_HP, PART_SCORE, RING_SCORE } from '../src/config';
+import { DRAGON_MAX_HP, ENEMY_SCORE, PART_SCORE, RING_SCORE } from '../src/config';
 
 function siegeWithParts(): GameState {
   const state = new GameState();
@@ -33,6 +33,16 @@ describe('GameState', () => {
     state.damageDragon(DRAGON_MAX_HP + 50);
     expect(state.dragonHp).toBe(0);
     expect(state.phase).toBe('defeat');
+  });
+
+  it('rewards each enemy shot down, only during a game', () => {
+    const state = new GameState();
+    state.killEnemy();
+    expect(state.score).toBe(0);
+    state.start();
+    state.killEnemy();
+    state.killEnemy();
+    expect(state.score).toBe(ENEMY_SCORE * 2);
   });
 
   it('heals without exceeding maximum health', () => {

@@ -4,6 +4,7 @@ import {
   ConeGeometry,
   Group,
   InstancedMesh,
+  MathUtils,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -12,6 +13,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
+import { smoothstep } from '../core/noise';
 import { createScaleTexture } from '../fx/textures';
 import { createTaperedTube, profile, shapeTaperedTube } from './tube';
 import { Wing } from './wing';
@@ -47,13 +49,19 @@ function staticTube(points: number[][], radius: Array<[number, number]>, materia
   return new Mesh(geometry, material);
 }
 
-function createHead(hide: MeshStandardMaterial, horn: MeshStandardMaterial): Group {
+function createHead(hide: MeshStandardMaterial, horn: MeshStandardMaterial): { head: Group; jaw: Group } {
   const head = new Group();
   const skull = new Mesh(new SphereGeometry(1.6, 24, 16), hide);
   skull.scale.set(1.05, 0.85, 1.4);
   skull.position.set(0, 0.3, -0.6);
   const snout = staticTube([[0, 0.3, -1.5], [0, 0.1, -3.5], [0, -0.2, -5.6]], [[0, 1.2], [0.6, 0.85], [1, 0.45]], hide);
-  const jaw = staticTube([[0, -0.6, -1], [0, -1.1, -3.2], [0, -1.1, -5]], [[0, 0.95], [1, 0.3]], hide);
+  // The jaw hinges just under the skull so it can open to breathe fire.
+  const jaw = new Group();
+  jaw.position.set(0, -0.6, -1);
+  jaw.add(staticTube([[0, 0, 0], [0, -0.5, -2.2], [0, -0.5, -4]], [[0, 0.95], [1, 0.3]], hide));
+  const throat = new Mesh(new SphereGeometry(0.6, 10, 8), new MeshBasicMaterial({ color: new Color(4, 1.4, 0.3) }));
+  throat.position.set(0, -0.35, -2.4);
+  jaw.add(throat);
   head.add(skull, snout, jaw);
 
   for (const side of [-1, 1]) {
@@ -68,7 +76,7 @@ function createHead(hide: MeshStandardMaterial, horn: MeshStandardMaterial): Gro
     eye.position.set(0.95 * side, 0.65, -1.6);
     head.add(mainHorn, smallHorn, brow, eye);
   }
-  return head;
+  return { head, jaw };
 }
 
 function createLegs(hide: MeshStandardMaterial, horn: MeshStandardMaterial): Group {
@@ -88,6 +96,19 @@ function createLegs(hide: MeshStandardMaterial, horn: MeshStandardMaterial): Gro
   return legs;
 }
 
+/** How the dragon is moving, used to articulate its body. All values are roughly in [-1, 1]. */
+export interface DragonMotion {
+  /** Lateral speed: > 0 when moving to its right. */
+  turn: number;
+  /** Vertical speed: > 0 when climbing, < 0 when diving. */
+  climb: number;
+  /** Extra effort (boost), 0 to 1. */
+  effort: number;
+}
+
+const STILL: DragonMotion = { turn: 0, climb: 0, effort: 0 };
+const JAW_OPEN_TIME = 0.28;
+
 /** The dragon: procedural body, horned head, spiked spine and flapping membrane wings. */
 export class Dragon {
   readonly root = new Group();
@@ -95,11 +116,20 @@ export class Dragon {
   private readonly body: Mesh;
   private readonly spikes: InstancedMesh;
   private readonly head: Group;
+  private readonly jaw: Group;
+  private readonly legs: Group;
   private readonly tailBlade: Mesh;
   private readonly wings: Wing[];
   private readonly spine = SPINE_REST.map((p) => p.clone());
   private readonly curve = new CatmullRomCurve3(this.spine);
   private flapPhase = 0;
+  private neckTurn = 0;
+  private neckClimb = 0;
+  private tailTurn = 0;
+  private tailClimb = 0;
+  private fold = 0;
+  private glide = 0;
+  private jawTimer = 0;
 
   constructor() {
     const hide = hideMaterial();
@@ -108,43 +138,82 @@ export class Dragon {
     this.body.frustumCulled = false;
     this.spikes = new InstancedMesh(new ConeGeometry(0.42, 2.2, 5), horn, SPIKE_COUNT);
     this.spikes.frustumCulled = false;
-    this.head = createHead(hide, horn);
+    const { head, jaw } = createHead(hide, horn);
+    this.head = head;
+    this.jaw = jaw;
+    this.legs = createLegs(hide, horn);
     this.tailBlade = new Mesh(new ConeGeometry(1.8, 5, 4), horn);
     this.tailBlade.scale.set(1, 1, 0.25);
     this.wings = [new Wing(1, horn), new Wing(-1, horn)];
 
-    this.model.add(this.body, this.spikes, this.head, this.tailBlade, createLegs(hide, horn), ...this.wings.map((w) => w.group));
+    this.model.add(this.body, this.spikes, this.head, this.tailBlade, this.legs, ...this.wings.map((w) => w.group));
     this.model.scale.setScalar(MODEL_SCALE);
     this.root.add(this.model);
-    this.update(0, 0, 0);
+    this.update(0, 0, STILL);
   }
 
-  /** `effort` in [0, 1] speeds up the wingbeat (climbing, boosting). */
-  update(dt: number, time: number, effort: number): void {
-    this.flapPhase += dt * (3.2 + effort * 2.6);
-    const flap = Math.sin(this.flapPhase) * 0.72 + 0.12;
-    const sweep = Math.cos(this.flapPhase) * 0.16;
-    for (const wing of this.wings) wing.update(flap, sweep);
-    this.model.position.y = -Math.sin(this.flapPhase) * 0.9;
+  update(dt: number, time: number, motion: DragonMotion): void {
+    // The neck reacts first, the tail follows with a delay: the body flows through turns.
+    this.neckTurn = MathUtils.damp(this.neckTurn, motion.turn, 6, dt);
+    this.neckClimb = MathUtils.damp(this.neckClimb, motion.climb, 6, dt);
+    this.tailTurn = MathUtils.damp(this.tailTurn, motion.turn, 1.8, dt);
+    this.tailClimb = MathUtils.damp(this.tailClimb, motion.climb, 1.8, dt);
 
-    this.swayTail(time);
+    this.animateWings(dt, time, motion);
+    this.bendSpine(time);
     shapeTaperedTube(this.body.geometry, this.curve, bodyRadius);
     this.placeSpikes();
     this.placeHead();
     this.placeTailBlade();
+
+    this.legs.rotation.x = this.fold * 0.35;
+    this.jawTimer = Math.max(0, this.jawTimer - dt);
+    this.jaw.rotation.x = MathUtils.damp(this.jaw.rotation.x, this.jawTimer > 0 ? -0.5 : 0, 14, dt);
+  }
+
+  /** Opens the jaw briefly, as the dragon breathes fire. */
+  openJaw(): void {
+    this.jawTimer = JAW_OPEN_TIME;
   }
 
   mouthPosition(target: Vector3): Vector3 {
     return this.head.localToWorld(target.set(0, -0.3, -6));
   }
 
-  private swayTail(time: number): void {
-    for (let i = FIRST_TAIL_POINT; i < this.spine.length; i++) {
-      const weight = (i - FIRST_TAIL_POINT + 1) / (this.spine.length - FIRST_TAIL_POINT);
-      this.spine[i].x = Math.sin(time * 1.7 - i * 0.6) * 3.2 * weight;
-      this.spine[i].y = SPINE_REST[i].y + Math.sin(this.flapPhase - i * 0.5) * 0.9 * weight;
+  /**
+   * Flapping alternates with glides while cruising; climbing or boosting means strong fast beats,
+   * diving folds the wings back.
+   */
+  private animateWings(dt: number, time: number, motion: DragonMotion): void {
+    const climbing = Math.max(0, motion.climb);
+    const diving = Math.max(0, -motion.climb);
+    const glideWave = smoothstep(0.55, 0.85, Math.sin(time * 0.45) * 0.5 + 0.5);
+    this.glide = MathUtils.damp(this.glide, glideWave * (1 - motion.effort) * (1 - climbing), 2, dt);
+    this.fold = MathUtils.damp(this.fold, Math.min(0.85, diving * 1.3), 4, dt);
+
+    const beat = (1 - this.glide * 0.85) * (1 - this.fold * 0.8);
+    this.flapPhase += dt * (3.2 + motion.effort * 2.6 + climbing * 2.2) * (1 - this.glide * 0.6);
+    const flap = Math.sin(this.flapPhase) * 0.72 * beat + 0.12 + this.glide * 0.12 - this.fold * 0.2;
+    const sweep = Math.cos(this.flapPhase) * 0.16 * beat;
+    // The wing on the inside of the turn dips a little more.
+    this.wings[0].update(flap - this.neckTurn * 0.12, sweep, this.fold);
+    this.wings[1].update(flap + this.neckTurn * 0.12, sweep, this.fold);
+    this.model.position.y = -Math.sin(this.flapPhase) * 0.9 * beat;
+  }
+
+  private bendSpine(time: number): void {
+    for (let i = 0; i < FIRST_TAIL_POINT - 2; i++) {
+      const weight = (FIRST_TAIL_POINT - 2 - i) / (FIRST_TAIL_POINT - 2);
+      this.spine[i].x = this.neckTurn * 5 * weight * weight;
+      this.spine[i].y = SPINE_REST[i].y + this.neckClimb * 2.2 * weight + Math.sin(time * 1.1) * 0.35 * weight;
     }
-    this.spine[0].y = SPINE_REST[0].y + Math.sin(time * 1.1) * 0.35;
+    const tailPoints = this.spine.length - FIRST_TAIL_POINT;
+    for (let i = FIRST_TAIL_POINT; i < this.spine.length; i++) {
+      const weight = (i - FIRST_TAIL_POINT + 1) / tailPoints;
+      const sway = Math.sin(time * 1.7 - i * 0.6) * 3.2 * weight * (1 - Math.min(1, Math.abs(this.tailTurn)) * 0.6);
+      this.spine[i].x = sway - this.tailTurn * 10 * Math.pow(weight, 1.4);
+      this.spine[i].y = SPINE_REST[i].y + Math.sin(this.flapPhase - i * 0.5) * 0.9 * weight - this.tailClimb * 5 * weight;
+    }
   }
 
   private placeSpikes(): void {

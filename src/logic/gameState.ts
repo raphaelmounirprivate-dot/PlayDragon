@@ -1,4 +1,4 @@
-import { DRAGON_MAX_HP, PART_SCORE, RING_SCORE } from '../config';
+import { DRAGON_MAX_HP, ENEMY_SCORE, PART_SCORE, RING_SCORE } from '../config';
 
 export type Phase = 'menu' | 'voyage' | 'siege' | 'victory' | 'defeat';
 
@@ -44,6 +44,10 @@ export class GameState {
     if (!this.isPlaying()) return;
     this.dragonHp = Math.max(0, this.dragonHp - amount);
     if (this.dragonHp === 0) this.phase = 'defeat';
+  }
+
+  killEnemy(): void {
+    if (this.isPlaying()) this.score += ENEMY_SCORE;
   }
 
   heal(amount: number): void {

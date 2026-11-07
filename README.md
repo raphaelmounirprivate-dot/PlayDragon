@@ -23,6 +23,8 @@ SmartScreen peut afficher un avertissement : clique sur « Informations complém
 
 1. **Le voyage** (environ 1 minute) : le dragon suit la rivière. Chaque anneau traversé rapporte
    100 points. Les rochers enlèvent 20 points de vie ; tu peux aussi les détruire en tirant dessus.
+   Des **gargouilles** arrivent par vagues et foncent sur toi : abats-les au feu (150 points chacune), sinon
+   leur choc enlève 10 points de vie.
 2. **Le siège** : le château apparaît. **Q / D** pour en faire le tour (le dragon reste face à lui),
    **Z / S** pour monter ou descendre. Ses 6 tours et son donjon tirent des carreaux bleus : esquive-les en
    tournant. Chaque partie du château détruite rapporte 500 points.

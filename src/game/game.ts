@@ -9,9 +9,10 @@ import {
   Scene,
   Vector3,
 } from 'three';
-import { BOLT_DAMAGE, DRAGON_MAX_HP, FOG_COLOR, ROCK_DAMAGE, SUN_DIRECTION } from '../config';
+import { BOLT_DAMAGE, DRAGON_MAX_HP, ENEMY_DAMAGE, FOG_COLOR, ROCK_DAMAGE, SUN_DIRECTION } from '../config';
 import { Input } from '../core/input';
 import { Dragon } from '../entities/dragon';
+import { Enemies } from '../entities/enemies';
 import { Shield } from '../entities/shield';
 import { ABILITIES, Abilities, AbilityId, definition } from '../logic/abilities';
 import { Effects, randomDirection } from '../fx/particles';
@@ -32,6 +33,11 @@ import { FlightController, FlightMode } from './flight';
 
 const INVULNERABILITY = 1;
 const HEAL_AMOUNT = 40;
+const ENEMY_CONTACT_RADIUS = 14;
+const WAVE_DISTANCE = 850;
+const WAVE_INTERVAL_MIN = 5;
+const WAVE_INTERVAL_MAX = 8;
+const LAST_WAVE_JOURNEY = 0.9;
 const END_SCREEN_DELAY = 3;
 const AIM_DISTANCE = 1400;
 
@@ -54,6 +60,8 @@ export class Game {
   private readonly raycaster = new Raycaster();
   private readonly abilities = new Abilities();
   private readonly shield = new Shield();
+  private readonly enemies = new Enemies();
+  private waveTimer = 0;
   private invulnerable = 0;
   private endTimer = 0;
   private paused = false;
@@ -70,7 +78,7 @@ export class Game {
     const castleAt = castlePosition();
     this.castle = new Castle(castleAt);
     this.obstacles = new Obstacles(curve);
-    this.combat = new Combat(this.effects, this.castle, this.obstacles.rocks);
+    this.combat = new Combat(this.effects, this.castle, this.obstacles.rocks, this.enemies);
     this.flight = new FlightController(curve, this.dragon, this.camera, castleAt.clone().setY(castleAt.y + 50));
     for (const part of this.castle.parts) this.state.registerPart(part.id, part.hp);
 
@@ -83,6 +91,7 @@ export class Game {
       createVillages(),
       this.castle.group,
       this.obstacles.group,
+      this.enemies.group,
       this.dragon.root,
       this.combat.fireballs.group,
       this.combat.meteors.group,
@@ -118,6 +127,8 @@ export class Game {
     this.obstacles.reset();
     this.castle.reset();
     this.combat.reset();
+    this.enemies.clear();
+    this.waveTimer = WAVE_INTERVAL_MIN;
     this.abilities.reset();
     this.effects.clear();
     this.invulnerable = 0;
@@ -157,7 +168,10 @@ export class Game {
     this.shield.update(this.flight.position, this.abilities.isActive('shield'), time);
 
     if (this.state.phase === 'voyage') this.updateVoyage();
-    if (this.state.isPlaying()) this.updateCombat(dt);
+    if (this.state.isPlaying()) {
+      this.updateEnemies(dt, time);
+      this.updateCombat(dt);
+    }
     this.updateEnding(dt);
 
     this.sky.update(this.camera.position, time);
@@ -218,6 +232,39 @@ export class Game {
     }
   }
 
+  /** Waves of gargoyles come at the dragon during the journey; contact hurts, fire kills them. */
+  private updateEnemies(dt: number, time: number): void {
+    this.waveTimer -= dt;
+    if (this.state.phase === 'voyage' && this.waveTimer <= 0 && this.flight.journey() < LAST_WAVE_JOURNEY) {
+      this.spawnWave();
+      this.waveTimer = WAVE_INTERVAL_MIN + Math.random() * (WAVE_INTERVAL_MAX - WAVE_INTERVAL_MIN);
+    }
+    this.enemies.update(dt, time, this.flight.position);
+    for (const enemy of [...this.enemies.items]) {
+      const position = enemy.group.position;
+      if (position.distanceTo(this.flight.position) < ENEMY_CONTACT_RADIUS) {
+        this.effects.explosion(position, 0.9);
+        this.enemies.remove(enemy);
+        this.hurtDragon(ENEMY_DAMAGE);
+      } else if (this.isBehindDragon(position, 80)) {
+        this.enemies.remove(enemy);
+      }
+    }
+  }
+
+  /** Bigger waves as the castle gets closer. */
+  private spawnWave(): void {
+    const frame = this.flight.frameAhead(WAVE_DISTANCE);
+    const count = 3 + Math.floor(this.flight.journey() * 3 + Math.random() * 2);
+    for (let i = 0; i < count; i++) {
+      const position = frame.point
+        .clone()
+        .addScaledVector(frame.right, (Math.random() - 0.5) * 260)
+        .addScaledVector(frame.up, (Math.random() - 0.5) * 110);
+      this.enemies.spawn(position);
+    }
+  }
+
   private useAbility(id: AbilityId): void {
     if (!this.abilities.activate(id, this.state)) return;
     const ability = definition(id);
@@ -231,10 +278,13 @@ export class Game {
 
   private updateCombat(dt: number): void {
     const mouth = this.dragon.mouthPosition(new Vector3());
-    this.combat.tryFire(mouth, this.aimPoint(), dt, this.input.isFiring(), this.abilities.isActive('triple'));
+    if (this.combat.tryFire(mouth, this.aimPoint(), dt, this.input.isFiring(), this.abilities.isActive('triple'))) {
+      this.dragon.openJaw();
+    }
     this.combat.update(dt, this.flight.position, this.state.phase === 'siege', {
       onCastleHit: (partId, damage) => this.state.damagePart(partId, damage),
       onDragonHit: () => this.hurtDragon(BOLT_DAMAGE),
+      onEnemyKilled: () => this.state.killEnemy(),
     });
     if (this.state.phase === 'victory') {
       this.castle.collapseWalls(this.effects);
@@ -262,8 +312,8 @@ export class Game {
   }
 
   /** Missed rings and rocks vanish once passed, so the camera never flies through them. */
-  private isBehindDragon(point: Vector3): boolean {
-    return point.clone().sub(this.flight.position).dot(this.flight.forward) < -10;
+  private isBehindDragon(point: Vector3, margin = 10): boolean {
+    return point.clone().sub(this.flight.position).dot(this.flight.forward) < -margin;
   }
 
   private hurtDragon(amount: number): void {

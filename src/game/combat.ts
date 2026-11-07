@@ -1,5 +1,6 @@
 import { Color, Vector3 } from 'three';
 import { BOLT_SPEED, FIREBALL_COOLDOWN, FIREBALL_SPEED } from '../config';
+import { Enemies } from '../entities/enemies';
 import { Projectiles } from '../entities/projectiles';
 import { Effects, randomDirection } from '../fx/particles';
 import { Castle } from '../world/castle';
@@ -13,11 +14,13 @@ const TRIPLE_SPREAD = 0.07;
 const METEOR_SPEED = 380;
 const METEOR_DAMAGE = 4;
 const UP = new Vector3(0, 1, 0);
+const ENEMY_HIT_RADIUS = 14;
 
 export interface CombatEvents {
   /** Returns true when the hit destroys the part. */
   onCastleHit(partId: string, damage: number): boolean;
   onDragonHit(): void;
+  onEnemyKilled(): void;
 }
 
 /** Dragon fireballs, castle defence bolts and every collision between them and the world. */
@@ -32,6 +35,7 @@ export class Combat {
     private readonly effects: Effects,
     private readonly castle: Castle,
     private readonly rocks: Rock[],
+    private readonly enemies: Enemies,
   ) {
     this.fireballs = new Projectiles(2.4, new Color(6, 3, 0.9), (position, velocity) => this.fireTrail(position, velocity, 1));
     this.meteors = new Projectiles(7, new Color(9, 4, 1.2), (position, velocity) => this.fireTrail(position, velocity, 3));
@@ -47,9 +51,10 @@ export class Combat {
   }
 
   /** Regular fire breath; `triple` fans three fireballs out instead of one. */
-  tryFire(from: Vector3, target: Vector3, dt: number, wantsToFire: boolean, triple: boolean): void {
+  /** Returns true when a shot was actually fired this frame. */
+  tryFire(from: Vector3, target: Vector3, dt: number, wantsToFire: boolean, triple: boolean): boolean {
     this.cooldown -= dt;
-    if (!wantsToFire || this.cooldown > 0) return;
+    if (!wantsToFire || this.cooldown > 0) return false;
     this.cooldown = FIREBALL_COOLDOWN;
     const direction = target.clone().sub(from).normalize();
     const angles = triple ? [-TRIPLE_SPREAD, 0, TRIPLE_SPREAD] : [0];
@@ -57,6 +62,7 @@ export class Combat {
       this.fireballs.spawn(from, direction.clone().applyAxisAngle(UP, angle).multiplyScalar(FIREBALL_SPEED), 3);
     }
     this.muzzleFlash(from, direction.multiplyScalar(FIREBALL_SPEED), 12);
+    return true;
   }
 
   launchMeteor(from: Vector3, target: Vector3): void {
@@ -84,6 +90,14 @@ export class Combat {
         if (destroyed) this.castle.destroy(part, this.effects);
         else this.castle.hit(part);
         this.effects.explosion(position, power);
+        projectiles.remove(projectile);
+        continue;
+      }
+      const enemy = this.enemies.items.find((e) => e.group.position.distanceTo(position) < ENEMY_HIT_RADIUS);
+      if (enemy) {
+        this.effects.explosion(enemy.group.position, 0.9);
+        this.enemies.remove(enemy);
+        events.onEnemyKilled();
         projectiles.remove(projectile);
         continue;
       }

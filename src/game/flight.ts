@@ -1,7 +1,7 @@
 import { CatmullRomCurve3, MathUtils, Matrix4, PerspectiveCamera, Vector2, Vector3 } from 'three';
 import { BOOST_FACTOR, BRAKE_FACTOR, FLIGHT_SPEED, SIEGE_DISTANCE, STEER_LIMIT_X, STEER_LIMIT_Y, STEER_SPEED } from '../config';
 import { Dragon } from '../entities/dragon';
-import { frameAt } from '../world/pathFrame';
+import { frameAt, PathFrame } from '../world/pathFrame';
 import { terrainHeight } from '../world/flightPath';
 
 export type FlightMode = 'menu' | 'voyage' | 'siege' | 'end';
@@ -14,6 +14,9 @@ const ORBIT_MAX_RADIUS = 480;
 const ORBIT_MIN_HEIGHT = -20;
 const ORBIT_MAX_HEIGHT = 220;
 const MAX_PITCH = 0.65;
+const MAX_BANK = 0.7;
+const STEER_RESPONSE = 2.8;
+const VERTICAL_SPEED = STEER_SPEED * 0.7;
 const BASE_FOV = 58;
 const BOOST_FOV = 12;
 const PITCH_SPEED_SCALE = 90;
@@ -30,6 +33,8 @@ export class FlightController {
   readonly forward = new Vector3(0, 0, -1);
   private distance = 0;
   private readonly offset = new Vector2();
+  /** Lateral (x) and vertical (y) speed of the dragon relative to its route, in units/s. */
+  private readonly velocity = new Vector2();
   private orbit: Orbit | null = null;
   private previousY = 0;
   /** Current speed relative to cruise speed (BRAKE_FACTOR to BOOST_FACTOR). */
@@ -52,6 +57,7 @@ export class FlightController {
   reset(): void {
     this.distance = 0;
     this.offset.set(0, 0);
+    this.velocity.set(0, 0);
     this.orbit = null;
     this.speedFactor = 1;
     this.previousY = this.curve.getPointAt(0).y;
@@ -64,6 +70,11 @@ export class FlightController {
     return this.distance / this.siegeStart;
   }
 
+  /** The route `ahead` units in front of the dragon (used to spawn enemies). */
+  frameAhead(ahead: number): PathFrame {
+    return frameAt(this.curve, this.distance + ahead);
+  }
+
   reachedCastle(): boolean {
     return this.distance >= this.siegeStart;
   }
@@ -74,37 +85,52 @@ export class FlightController {
     const speedTarget = throttle > 0 ? BOOST_FACTOR : throttle < 0 ? BRAKE_FACTOR : 1;
     this.speedFactor = MathUtils.damp(this.speedFactor, speedTarget, 3, dt);
     const atCastle = mode === 'siege' || (mode === 'end' && this.reachedCastle());
+
+    // Inertia: input sets a target velocity that the dragon reaches progressively.
+    const lateralSpeed = atCastle ? ORBIT_SPEED * this.speedFactor : STEER_SPEED;
+    this.velocity.x = MathUtils.damp(this.velocity.x, steerX * lateralSpeed, STEER_RESPONSE, dt);
+    this.velocity.y = MathUtils.damp(this.velocity.y, steerY * VERTICAL_SPEED, STEER_RESPONSE, dt);
+
     if (atCastle) {
-      this.circleCastle(dt, mode === 'siege' ? steerX : 0, mode === 'siege' ? steerY : 0);
+      this.circleCastle(dt);
     } else {
-      this.followRiver(dt, steerX, steerY, mode);
+      this.followRiver(dt, mode);
     }
+    // Gentle wandering so the dragon never looks rail-mounted.
+    this.position.y += Math.sin(this.time * 0.9) * 2.5;
     this.position.y = Math.max(this.position.y, terrainHeight(this.position.x, this.position.z) + MIN_GROUND_CLEARANCE);
 
     // Nose follows the actual climb or dive: body tilts down when descending, up when climbing.
     const verticalSpeed = dt > 0 ? (this.position.y - this.previousY) / dt : 0;
     this.previousY = this.position.y;
     const pitchTarget = MathUtils.clamp(verticalSpeed / PITCH_SPEED_SCALE, -MAX_PITCH, MAX_PITCH);
-    this.bank = MathUtils.damp(this.bank, -steerX * 0.55, 4, dt);
+    const turn = MathUtils.clamp(this.velocity.x / STEER_SPEED, -1, 1);
+    this.bank = MathUtils.damp(this.bank, -turn * MAX_BANK, 4, dt);
     this.pitch = MathUtils.damp(this.pitch, pitchTarget, 5, dt);
     this.orientDragon();
-    this.dragon.update(dt, this.time, Math.max(0, steerY, this.speedFactor - 1));
+    this.dragon.update(dt, this.time, {
+      turn,
+      climb: MathUtils.clamp(verticalSpeed / VERTICAL_SPEED, -1, 1),
+      effort: Math.max(0, (this.speedFactor - 1) / (BOOST_FACTOR - 1)),
+    });
     this.updateCamera(dt, mode);
   }
 
-  private followRiver(dt: number, steerX: number, steerY: number, mode: FlightMode): void {
+  private followRiver(dt: number, mode: FlightMode): void {
     if (mode === 'voyage') {
       this.distance = Math.min(this.siegeStart, this.distance + FLIGHT_SPEED * this.speedFactor * dt);
-      this.offset.x = MathUtils.clamp(this.offset.x + steerX * STEER_SPEED * dt, -STEER_LIMIT_X, STEER_LIMIT_X);
-      this.offset.y = MathUtils.clamp(this.offset.y + steerY * STEER_SPEED * 0.7 * dt, -STEER_LIMIT_Y, STEER_LIMIT_Y);
+      this.offset.x = this.moveWithin(this.offset.x, 'x', dt, STEER_LIMIT_X);
+      this.offset.y = this.moveWithin(this.offset.y, 'y', dt, STEER_LIMIT_Y);
     }
     const frame = frameAt(this.curve, this.distance);
     this.position.copy(frame.point).addScaledVector(frame.right, this.offset.x).addScaledVector(frame.up, this.offset.y);
-    this.forward.copy(frame.tangent);
+    // The nose points where the dragon is actually going, not just along the river.
+    const sideways = this.velocity.x / (FLIGHT_SPEED * this.speedFactor);
+    this.forward.copy(frame.tangent).addScaledVector(frame.right, sideways * 0.6).normalize();
   }
 
   /** Siege: left/right orbit around the castle while facing it, up/down change altitude. */
-  private circleCastle(dt: number, steerX: number, steerY: number): void {
+  private circleCastle(dt: number): void {
     const center = this.castleTarget;
     if (!this.orbit) {
       this.orbit = {
@@ -115,10 +141,17 @@ export class FlightController {
     }
     const orbit = this.orbit;
     // Moving toward the dragon's right (facing the castle) decreases the angle.
-    orbit.angle -= (steerX * ORBIT_SPEED * this.speedFactor * dt) / orbit.radius;
-    orbit.height = MathUtils.clamp(orbit.height + steerY * STEER_SPEED * 0.7 * dt, center.y + ORBIT_MIN_HEIGHT, center.y + ORBIT_MAX_HEIGHT);
+    orbit.angle -= (this.velocity.x * dt) / orbit.radius;
+    orbit.height = this.moveWithin(orbit.height - center.y, 'y', dt, ORBIT_MAX_HEIGHT, ORBIT_MIN_HEIGHT) + center.y;
     this.position.set(center.x + Math.cos(orbit.angle) * orbit.radius, orbit.height, center.z + Math.sin(orbit.angle) * orbit.radius);
     this.forward.copy(center).sub(this.position).setY(0).normalize();
+  }
+
+  /** Advances one axis by the current velocity, stopping (and killing that velocity) at the limits. */
+  private moveWithin(value: number, axis: 'x' | 'y', dt: number, max: number, min = -max): number {
+    const next = value + this.velocity[axis] * dt;
+    if (next > max || next < min) this.velocity[axis] = 0;
+    return MathUtils.clamp(next, min, max);
   }
 
   private orientDragon(): void {

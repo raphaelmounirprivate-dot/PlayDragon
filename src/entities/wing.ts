@@ -33,6 +33,17 @@ const BONES: Array<[Vector3, Vector3, number]> = [
   [WRIST, TIPS[3], 0.3],
 ];
 
+const ELBOW_FOLD = 0.9;
+const WRIST_FOLD = 1.1;
+
+/** Rotates `point` around the vertical axis through `pivot`; negative angles swing it backward (+Z). */
+function rotateAboutY(point: Vector3, pivot: Vector3, angle: number): void {
+  const dx = point.x - pivot.x;
+  const dz = point.z - pivot.z;
+  point.x = pivot.x + dx * Math.cos(angle) + dz * Math.sin(angle);
+  point.z = pivot.z - dx * Math.sin(angle) + dz * Math.cos(angle);
+}
+
 /** Scalloped trailing edge: midpoints pulled toward the wrist, like stretched leather. */
 function scallop(a: Vector3, b: Vector3): Vector3 {
   return a.clone().lerp(b, 0.5).lerp(WRIST, 0.28);
@@ -94,6 +105,8 @@ export class Wing {
   private readonly rest: Float32Array;
   private readonly a = new Vector3();
   private readonly b = new Vector3();
+  private readonly foldedWrist = new Vector3();
+  private fold = 0;
 
   constructor(side: 1 | -1, boneMaterial: Material) {
     this.side = side;
@@ -125,8 +138,15 @@ export class Wing {
     this.update(0, 0);
   }
 
-  /** flap > 0 raises the wing; sweep > 0 swings the tips forward. */
-  update(flap: number, sweep: number): void {
+  /**
+   * flap > 0 raises the wing; sweep > 0 swings the tips forward;
+   * fold in [0, 1] bends the wing back at the elbow and the wrist, like a bat tucking in.
+   */
+  update(flap: number, sweep: number, fold = 0): void {
+    this.fold = fold;
+    this.foldedWrist.copy(WRIST);
+    rotateAboutY(this.foldedWrist, ELBOW, -fold * ELBOW_FOLD);
+
     const positions = this.membrane.geometry.attributes.position as BufferAttribute;
     for (let i = 0; i < positions.count; i++) {
       this.a.fromArray(this.rest, i * 3);
@@ -148,6 +168,11 @@ export class Wing {
   }
 
   private pose(point: Vector3, flap: number, sweep: number): void {
+    if (this.fold > 0) {
+      const restX = point.x;
+      rotateAboutY(point, ELBOW, -this.fold * ELBOW_FOLD * smoothstep(9, 20, restX));
+      rotateAboutY(point, this.foldedWrist, -this.fold * WRIST_FOLD * smoothstep(21, 40, restX));
+    }
     const reach = smoothstep(6, 46, point.x);
     const lift = flap * (0.55 + 0.45 * reach);
     const dx = point.x - SHOULDER.x;
@@ -155,11 +180,7 @@ export class Wing {
     point.x = SHOULDER.x + dx * Math.cos(lift) - dy * Math.sin(lift);
     point.y = SHOULDER.y + dx * Math.sin(lift) + dy * Math.cos(lift);
 
-    const swing = sweep * reach;
-    const sx = point.x - SHOULDER.x;
-    const sz = point.z - SHOULDER.z;
-    point.x = SHOULDER.x + sx * Math.cos(swing) + sz * Math.sin(swing);
-    point.z = SHOULDER.z - sx * Math.sin(swing) + sz * Math.cos(swing);
+    rotateAboutY(point, SHOULDER, sweep * reach);
     point.x *= this.side;
   }
 
