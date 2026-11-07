@@ -26,7 +26,10 @@ export function terrainHeight(x: number, z: number): number {
   const castle = castlePosition();
   const distanceToCastle = Math.hypot(x - castle.x, z - castle.z);
   const hill = (1 - smoothstep(60, 380, distanceToCastle)) * CASTLE_HILL_HEIGHT;
-  return Math.max(height, hill);
+  // Open basin around the castle so the dragon can fly all the way around it.
+  const arena = 1 - smoothstep(560, 1000, distanceToCastle);
+  const flattened = height + (valleyFloor + 10 - height) * arena;
+  return Math.max(flattened, hill);
 }
 
 /** The smooth curve the dragon follows, high above the river. */

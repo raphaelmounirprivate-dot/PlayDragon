@@ -6,8 +6,21 @@ import { terrainHeight } from '../world/flightPath';
 
 export type FlightMode = 'menu' | 'voyage' | 'siege' | 'end';
 
-const SIEGE_STEER_FACTOR = 1.5;
 const MIN_GROUND_CLEARANCE = 30;
+const CAMERA_GROUND_CLEARANCE = 15;
+const ORBIT_SPEED = 140;
+const ORBIT_MIN_RADIUS = 320;
+const ORBIT_MAX_RADIUS = 480;
+const ORBIT_MIN_HEIGHT = -20;
+const ORBIT_MAX_HEIGHT = 220;
+const MAX_PITCH = 0.65;
+const PITCH_SPEED_SCALE = 90;
+
+interface Orbit {
+  angle: number;
+  radius: number;
+  height: number;
+}
 
 /** Moves the dragon along the valley route and keeps the camera framing it like a painting. */
 export class FlightController {
@@ -15,6 +28,8 @@ export class FlightController {
   readonly forward = new Vector3(0, 0, -1);
   private distance = 0;
   private readonly offset = new Vector2();
+  private orbit: Orbit | null = null;
+  private previousY = 0;
   private bank = 0;
   private pitch = 0;
   private time = 0;
@@ -33,6 +48,8 @@ export class FlightController {
   reset(): void {
     this.distance = 0;
     this.offset.set(0, 0);
+    this.orbit = null;
+    this.previousY = this.curve.getPointAt(0).y;
     this.bank = 0;
     this.pitch = 0;
   }
@@ -48,31 +65,52 @@ export class FlightController {
 
   update(dt: number, steerX: number, steerY: number, mode: FlightMode): void {
     this.time += dt;
-    if (mode === 'voyage') this.distance = Math.min(this.siegeStart, this.distance + FLIGHT_SPEED * dt);
-    if (mode === 'voyage' || mode === 'siege') this.steer(dt, steerX, steerY, mode === 'siege' ? SIEGE_STEER_FACTOR : 1);
-
-    const frame = frameAt(this.curve, this.distance);
-    this.position.copy(frame.point).addScaledVector(frame.right, this.offset.x).addScaledVector(frame.up, this.offset.y);
+    const atCastle = mode === 'siege' || (mode === 'end' && this.reachedCastle());
+    if (atCastle) {
+      this.circleCastle(dt, mode === 'siege' ? steerX : 0, mode === 'siege' ? steerY : 0);
+    } else {
+      this.followRiver(dt, steerX, steerY, mode);
+    }
     this.position.y = Math.max(this.position.y, terrainHeight(this.position.x, this.position.z) + MIN_GROUND_CLEARANCE);
 
-    if (mode === 'siege' || (mode === 'end' && this.reachedCastle())) {
-      this.forward.copy(this.castleTarget).sub(this.position).setY(0).normalize();
-    } else {
-      this.forward.copy(frame.tangent);
-    }
-
+    // Nose follows the actual climb or dive: body tilts down when descending, up when climbing.
+    const verticalSpeed = dt > 0 ? (this.position.y - this.previousY) / dt : 0;
+    this.previousY = this.position.y;
+    const pitchTarget = MathUtils.clamp(verticalSpeed / PITCH_SPEED_SCALE, -MAX_PITCH, MAX_PITCH);
     this.bank = MathUtils.damp(this.bank, -steerX * 0.55, 4, dt);
-    this.pitch = MathUtils.damp(this.pitch, steerY * 0.22, 4, dt);
+    this.pitch = MathUtils.damp(this.pitch, pitchTarget, 5, dt);
     this.orientDragon();
     this.dragon.update(dt, this.time, Math.max(0, steerY));
     this.updateCamera(dt, mode);
   }
 
-  private steer(dt: number, steerX: number, steerY: number, factor: number): void {
-    const limitX = STEER_LIMIT_X * factor;
-    const limitY = STEER_LIMIT_Y * factor;
-    this.offset.x = MathUtils.clamp(this.offset.x + steerX * STEER_SPEED * dt, -limitX, limitX);
-    this.offset.y = MathUtils.clamp(this.offset.y + steerY * STEER_SPEED * 0.7 * dt, -limitY, limitY);
+  private followRiver(dt: number, steerX: number, steerY: number, mode: FlightMode): void {
+    if (mode === 'voyage') {
+      this.distance = Math.min(this.siegeStart, this.distance + FLIGHT_SPEED * dt);
+      this.offset.x = MathUtils.clamp(this.offset.x + steerX * STEER_SPEED * dt, -STEER_LIMIT_X, STEER_LIMIT_X);
+      this.offset.y = MathUtils.clamp(this.offset.y + steerY * STEER_SPEED * 0.7 * dt, -STEER_LIMIT_Y, STEER_LIMIT_Y);
+    }
+    const frame = frameAt(this.curve, this.distance);
+    this.position.copy(frame.point).addScaledVector(frame.right, this.offset.x).addScaledVector(frame.up, this.offset.y);
+    this.forward.copy(frame.tangent);
+  }
+
+  /** Siege: left/right orbit around the castle while facing it, up/down change altitude. */
+  private circleCastle(dt: number, steerX: number, steerY: number): void {
+    const center = this.castleTarget;
+    if (!this.orbit) {
+      this.orbit = {
+        angle: Math.atan2(this.position.z - center.z, this.position.x - center.x),
+        radius: MathUtils.clamp(Math.hypot(this.position.x - center.x, this.position.z - center.z), ORBIT_MIN_RADIUS, ORBIT_MAX_RADIUS),
+        height: this.position.y,
+      };
+    }
+    const orbit = this.orbit;
+    // Moving toward the dragon's right (facing the castle) decreases the angle.
+    orbit.angle -= (steerX * ORBIT_SPEED * dt) / orbit.radius;
+    orbit.height = MathUtils.clamp(orbit.height + steerY * STEER_SPEED * 0.7 * dt, center.y + ORBIT_MIN_HEIGHT, center.y + ORBIT_MAX_HEIGHT);
+    this.position.set(center.x + Math.cos(orbit.angle) * orbit.radius, orbit.height, center.z + Math.sin(orbit.angle) * orbit.radius);
+    this.forward.copy(center).sub(this.position).setY(0).normalize();
   }
 
   private orientDragon(): void {
@@ -103,6 +141,7 @@ export class FlightController {
       lookAt.copy(this.position).addScaledVector(this.forward, 110).add(new Vector3(0, 6, 0));
       if (siegeView) lookAt.lerp(this.castleTarget, 0.45);
     }
+    target.y = Math.max(target.y, terrainHeight(target.x, target.z) + CAMERA_GROUND_CLEARANCE);
     const smoothing = 1 - Math.exp(-4 * dt);
     this.camera.position.lerp(target, dt === 0 ? 1 : smoothing);
     this.camera.lookAt(lookAt);

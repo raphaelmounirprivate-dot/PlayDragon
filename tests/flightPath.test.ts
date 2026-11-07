@@ -18,6 +18,17 @@ describe('flight path', () => {
     expect(curve.getPointAt(0.5).y).toBeCloseTo(FLIGHT_ALTITUDE);
   });
 
+  it('keeps an open basin around the castle so the dragon can circle it', () => {
+    const castle = castlePosition();
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+      for (const radius of [320, 400, 480, 560]) {
+        const x = castle.x + Math.cos(angle) * radius;
+        const z = castle.z + Math.sin(angle) * radius;
+        expect(terrainHeight(x, z)).toBeLessThan(castle.y);
+      }
+    }
+  });
+
   it('places the castle on a hill at the end of the path', () => {
     const castle = castlePosition();
     expect(castle.z).toBe(-PATH_LENGTH);

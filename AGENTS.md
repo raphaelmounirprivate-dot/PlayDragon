@@ -73,7 +73,8 @@ Le jeu suit un dessin de référence : un dragon sombre au-dessus d'une mer de n
 
 Ils sont lus par caractère (`event.key`), donc l'**AZERTY** fonctionne directement :
 
-- **Z Q S D** ou les **flèches** : diriger (W et A sont aussi acceptés pour les claviers QWERTY)
+- **Z Q S D** ou les **flèches** : diriger (W et A sont aussi acceptés pour les claviers QWERTY). Pendant
+  le siège, Q/D font tourner le dragon autour du château (face à lui) et Z/S changent son altitude.
 - **Clic** ou **Espace** : cracher le feu
 - **Échap** : pause
 - **F11** : plein écran (dans l'exe)

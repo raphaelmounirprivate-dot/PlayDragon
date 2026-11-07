@@ -34,7 +34,7 @@ export class Hud {
 
   showSiege(): void {
     this.castleMeter.classList.remove('hidden');
-    this.announce('Le château est en vue !');
+    this.announce('Le château est en vue ! Q / D pour en faire le tour');
   }
 
   showEnd(victory: boolean, score: number, seconds: number): void {
